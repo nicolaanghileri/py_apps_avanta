@@ -3,6 +3,63 @@ import openpyxl
 
 doc_number = 1
 
+def validate_totals_before_anything(source_dir, label_status=None):
+    """
+    Prüft in allen Excel-Dateien im Ordner 'source_dir':
+      - Wenn Kontonummer 2 leer ist (None oder Leerstring)
+        UND der Wert in Spalte 'Total' != 0
+        => FEHLER: Wir brechen ab und werfen eine Exception.
+
+    label_status ist optional und dient zur GUI-Statusausgabe.
+    """
+    # Alle Excel-Dateien im Quellverzeichnis
+    files = [
+        f for f in os.listdir(source_dir)
+        if os.path.isfile(os.path.join(source_dir, f)) and f.endswith(".xlsx")
+    ]
+
+    for f in files:
+        file_path = os.path.join(source_dir, f)
+        wb = openpyxl.load_workbook(file_path, data_only=True)
+        ws = wb.active
+
+        # Header in Zeile 1 auslesen
+        headers = [cell.value for cell in ws[1]]
+
+        # Versuchen, die Indizes für 'Kontonummer 2' und 'Total' zu finden
+        try:
+            col_konto2 = headers.index("Kontonummer 2")
+            col_total = headers.index("Total")
+        except ValueError:
+            # Falls eine Spalte nicht existiert, gehen wir zur nächsten Datei
+            wb.close()
+            continue
+
+        # Zeilen ab Zeile 5 validieren
+        for row in ws.iter_rows(min_row=5, values_only=True):
+            konto_value = row[col_konto2]
+            total_value = row[col_total] if row[col_total] is not None else 0
+
+            # Check: Kontonummer 2 leer + Total != 0 => Fehler
+            if (konto_value is None or str(konto_value).strip() == "") and total_value != 0:
+                msg = (
+                    f"FEHLER in Datei '{f}': Kontonummer 2 ist leer, "
+                    f"aber Total={total_value}. Abbruch!"
+                )
+                print(msg)
+                wb.close()
+                if label_status:
+                    label_status.config(text=msg, fg="red")
+                # Exception werfen, damit das Programm abbricht
+                raise ValueError(msg)
+
+        wb.close()
+
+    print("Validierung erfolgreich: Keine fehlerhaften Zeilen gefunden.")
+    if label_status:
+        label_status.config(text="Validierung OK", fg="green")
+
+
 def pivot_kst_columns(source_file, prefix):
     """
     Liest eine Excel-Datei und wandelt Zeilen aus KST-Spalten in ein Standardformat um.
@@ -48,8 +105,8 @@ def pivot_kst_columns(source_file, prefix):
                     "01.01.2025",  # Value Date
                     "-",           # Buchungsart
                     prefix,        # Company number
-                    cost_center_num,  # NEU: Nur KST
-                    new_kst,       # Cost Center
+                    cost_center_num,  # KST (reine Nummer)
+                    new_kst,       # Cost Center (Prefix+Nummer)
                     kontonummer2,  # Cost type
                     bezeichnung2,  # Cost type description
                     "CHF",         # Currency
@@ -72,12 +129,12 @@ def revenue(source_file, prefix):
     # Erlaubte Kontonummern
     data = {
         "061": ["1725", "1580", "5615", "8080", "8040", "8720", "8643", "8640", "8650"],
-        "486": ["1090", "1099", "1110", "1115", "1155", "1150", "1290", "3410", "1225", "8261", "1910",
-                "3312", "1260", "1265", "1280", "2110", "2150", "2710", "7120", "8643", "8640"],
-        "495": ["1090", "1099", "1110", "1115", "1155", "1150", "1290", "3410", "1225", "8261", "1910",
-                "3312", "1260", "1265", "1280", "2110", "2150", "2710", "7120", "8643", "8640"],
-        "725": ["1090", "1099", "1110", "1115", "1155", "1150", "1290", "3410", "1225", "8261", "1910",
-                "3312", "1260", "1265", "1280", "2110", "2150", "2710", "7120", "8643", "8640"]
+        "486": ["1090", "1099", "1110", "1115", "1155", "1150", "1290", "3410", "1225", "8261",
+                "1910","3312", "1260", "1265", "1280", "2110", "2150", "2710", "7120", "8643", "8640"],
+        "495": ["1090", "1099", "1110", "1115", "1155", "1150", "1290", "3410", "1225", "8261",
+                "1910","3312", "1260", "1265", "1280", "2110", "2150", "2710", "7120", "8643", "8640"],
+        "725": ["1090", "1099", "1110", "1115", "1155", "1150", "1290", "3410", "1225", "8261",
+                "1910","3312", "1260", "1265", "1280", "2110", "2150", "2710", "7120", "8643", "8640"]
     }
 
     # Alle Zeilen holen
@@ -135,7 +192,7 @@ def checksum(source_file, min_row, column):
             value_as_float = float(value)
             sum_value += value_as_float
         except ValueError:
-            print(f"Warnung: '{value}' in Spalte {column} ist nicht numerisch und wird übersprungen.")
+            print(f"Warnung: '{value}' ist nicht numerisch und wird übersprungen.")
 
     wb_source.close()
     return sum_value
@@ -147,14 +204,21 @@ def floats_equal(a, b, epsilon=1e-9):
 
 def main_algo(source_dir, output_dir, selected_option, label_status=None):
     """
+    - Prüft zuerst via validate_totals_before_anything(), ob Kontonummer 2
+      leer + Total != 0 auftritt.
     - Monthly Report: Standard-Pivotisierung aller Files
     - Revenue: 1 Excel-File mit mehreren Sheets
     """
+    # 1) Zuerst Validierung
+    validate_totals_before_anything(source_dir, label_status)
+
+    # 2) Ordner prüfen
     if not os.path.isdir(source_dir) or not os.path.isdir(output_dir):
         if label_status:
             label_status.config(text="Ungültige Pfade", fg="red")
         return
 
+    # 3) Auswahl verarbeiten
     if selected_option == "Monthly Report":
         print("[Monthly Report] Starte Verarbeitung...")
         files = [f for f in os.listdir(source_dir) if f.endswith(".xlsx")]
@@ -206,3 +270,11 @@ def main_algo(source_dir, output_dir, selected_option, label_status=None):
             save_revenue_to_excel(prefix_data_dict, output_dir)
             if label_status:
                 label_status.config(text="Revenue Report erstellt!", fg="green")
+        else:
+            if label_status:
+                label_status.config(text="Keine Revenue-Daten gefunden!", fg="red")
+            print("Keine Revenue-Daten gefunden.")
+    else:
+        print(f"Unbekannte Option: {selected_option}")
+        if label_status:
+            label_status.config(text="Unbekannte Option!", fg="red")
