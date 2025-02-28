@@ -1,24 +1,25 @@
-# logic.py
-
 import os
 import openpyxl
 
-# Globale Dokumentnummer, wird in pivot_kst_columns hochgezählt
 doc_number = 1
 
 def pivot_kst_columns(source_file, prefix):
-
+    """
+    Liest eine Excel-Datei und wandelt Zeilen aus KST-Spalten in ein Standardformat um.
+    Gibt dabei ZWEI Werte pro Zeile zurück:
+       1) Die reine KST-Nummer (z. B. '100')
+       2) new_kst = prefix + cost_center_num (z. B. '486100')
+    """
     global doc_number
 
     wb_source = openpyxl.load_workbook(source_file, data_only=True)
     ws_source = wb_source.active
 
-    # Header-Zeile im Quell-Sheet
+    # Header-Zeile
     headers = [cell.value for cell in ws_source[1]]
 
-    # Relevante Spalten anhand der Headers ermitteln
+    # Indizes der notwendigen Spalten
     try:
-        col_bez1 = headers.index("Bezeichnung 1")
         col_kto2 = headers.index("Kontonummer 2")
         col_bez2 = headers.index("Bezeichnung 2")
     except ValueError as e:
@@ -26,49 +27,95 @@ def pivot_kst_columns(source_file, prefix):
         wb_source.close()
         return []
 
-    # Alle "KST"-Spalten finden
-    kst_cols = []
-    for i, h in enumerate(headers):
-        if h and str(h).startswith("KST"):
-            kst_cols.append(i)
+    # Finde alle KST-Spalten (Spalten, deren Header mit "KST" beginnt)
+    kst_cols = [i for i, h in enumerate(headers) if h and str(h).startswith("KST")]
 
     rows_to_append = []
-      # Startwert für die Dokumentnummer
 
-    # Zeilen durchlaufen (ab Zeile 5)
+    # Zeilen ab Zeile 5
     for row in ws_source.iter_rows(min_row=5, values_only=True):
-        bezeichnung1 = row[col_bez1]
         kontonummer2 = row[col_kto2]
         bezeichnung2 = row[col_bez2]
 
         for c_idx in kst_cols:
             amount = row[c_idx]
             if amount and amount != 0:
-                # Extrahiere KST-Nummer aus dem Header
+                # KST-Nummer extrahieren, z.B. "KST 100" -> "100"
                 cost_center_num = headers[c_idx].split()[1]
-                # Kombiniere prefix und KST-Nummer
-                new_kst = prefix + cost_center_num
+                new_kst = prefix + cost_center_num  # z. B. "486100"
 
-                # HIER bauen wir direkt die 12 Spalten in der korrekten Reihenfolge
                 rows_to_append.append([
-                    "01.02.2025",   # Value Date (Hardcoded)
-                    "-",            # Buchungsart
-                    prefix,         # Company number
-                    new_kst,        # Cost Center
-                    kontonummer2,   # Cost type
-                    bezeichnung2,   # Cost type description
-                    "CHF",          # Currency
-                    float(amount),         # Amount
-                    "01.02.2025",   # Entry date (hier beispielhaft gleiches Datum)
-                    "",             # Local Fibu Account (leer oder anpassen)
-                    doc_number,     # Document Number
-                    ""              # Document Description (leer)
+                    "01.01.2025",  # Value Date
+                    "-",           # Buchungsart
+                    prefix,        # Company number
+                    cost_center_num,  # NEU: Nur KST
+                    new_kst,       # Cost Center
+                    kontonummer2,  # Cost type
+                    bezeichnung2,  # Cost type description
+                    "CHF",         # Currency
+                    float(amount), # Amount
+                    "01.01.2025",  # Entry date
+                    "",            # Local Fibu Account
+                    doc_number,    # Document Number
+                    ""             # Document Description
                 ])
-
                 doc_number += 1
 
     wb_source.close()
     return rows_to_append
+
+
+def revenue(source_file, prefix):
+    """
+    Ruft pivot_kst_columns auf und filtert die Zeilen nach bestimmten Kontonummern (Cost type).
+    """
+    # Erlaubte Kontonummern
+    data = {
+        "061": ["1725", "1580", "5615", "8080", "8040", "8720", "8643", "8640", "8650"],
+        "486": ["1090", "1099", "1110", "1115", "1155", "1150", "1290", "3410", "1225", "8261", "1910",
+                "3312", "1260", "1265", "1280", "2110", "2150", "2710", "7120", "8643", "8640"],
+        "495": ["1090", "1099", "1110", "1115", "1155", "1150", "1290", "3410", "1225", "8261", "1910",
+                "3312", "1260", "1265", "1280", "2110", "2150", "2710", "7120", "8643", "8640"],
+        "725": ["1090", "1099", "1110", "1115", "1155", "1150", "1290", "3410", "1225", "8261", "1910",
+                "3312", "1260", "1265", "1280", "2110", "2150", "2710", "7120", "8643", "8640"]
+    }
+
+    # Alle Zeilen holen
+    all_rows = pivot_kst_columns(source_file, prefix)
+
+    # Falls prefix nicht in data: leere Liste
+    allowed_accounts = data.get(prefix, [])
+
+    # Filter: Nur wenn row[5] (Cost type) in den erlaubten Kontonummern ist
+    filtered_rows = [row for row in all_rows if str(row[5]) in allowed_accounts]
+
+    return filtered_rows
+
+
+def save_revenue_to_excel(prefix_data_dict, output_directory):
+    """
+    Schreibt ein einzelnes 'Revenue_Report.xlsx' mit mehreren Sheets,
+    pro Prefix ein Sheet, mit passendem Header (inkl. separater 'KST'-Spalte).
+    """
+    wb = openpyxl.Workbook()
+    default_sheet = wb.active
+    wb.remove(default_sheet)
+
+    header = [
+        "Value Date", "Buchungsart", "Company number", "KST", "Cost Center",
+        "Cost type", "Cost type description", "Currency", "Amount",
+        "Entry date", "Local Fibu Account", "Document Number", "Document Description"
+    ]
+
+    for prefix, rows in prefix_data_dict.items():
+        ws = wb.create_sheet(title=prefix)
+        ws.append(header)
+        for row in rows:
+            ws.append(row)
+
+    output_file = os.path.join(output_directory, "Revenue_Report.xlsx")
+    wb.save(output_file)
+    print(f"[Revenue] Daten in '{output_file}' gespeichert.")
 
 
 def checksum(source_file, min_row, column):
@@ -88,98 +135,74 @@ def checksum(source_file, min_row, column):
             value_as_float = float(value)
             sum_value += value_as_float
         except ValueError:
-            print(f"Warnung: '{value}' in Spalte {column} ist nicht numerisch und wird übersprungen. "
-                  f"Source: {source_file}")
+            print(f"Warnung: '{value}' in Spalte {column} ist nicht numerisch und wird übersprungen.")
 
     wb_source.close()
     return sum_value
 
 
 def floats_equal(a, b, epsilon=1e-9):
-    """
-    Nützliche Hilfsfunktion, um zwei Fließkommazahlen tolerant zu vergleichen.
-    """
     return abs(a - b) < epsilon
 
 
-def main_algo(source_dir, output_dir, label_status=None):
+def main_algo(source_dir, output_dir, selected_option, label_status=None):
     """
-    Diese Funktion durchläuft alle Excel-Dateien im Quellverzeichnis (source_dir),
-    holt sich die relevanten Daten (mittels pivot_kst_columns),
-    führt eine Checksum-Prüfung durch und schreibt ein konsolidiertes
-    Ergebnis in eine neue Datei 'MonthlyReport_STAG.xlsx' im Zielverzeichnis (output_dir).
-
-    label_status ist optional und dient zur Ausgabe von Statusmeldungen in der GUI.
+    - Monthly Report: Standard-Pivotisierung aller Files
+    - Revenue: 1 Excel-File mit mehreren Sheets
     """
-
-    # Liste aller Dateien im Ordner (Filtern nach .xlsx)
-    files = [
-        f for f in os.listdir(source_dir)
-        if os.path.isfile(os.path.join(source_dir, f)) and f.endswith(".xlsx")
-    ]
-
-    final_rows = []
-    final_checksum_files = 0
-
-    # Durchlaufe alle gefundenen Dateien
-    for f in files:
-        file_path = os.path.join(source_dir, f)
-        prefix = f.split()[0]  # Nimmt den ersten Wert aus dem Dateinamen als Prefix/Hotelnummer
-
-        # Addiere die Checksum über die Spalte 4 (Index 4 => 5. Spalte) ab Zeile 5
-        final_checksum_files += checksum(file_path, 5, 4)
-
-        rows = pivot_kst_columns(file_path, prefix)
-        print(f"Verarbeite Datei: {file_path} mit prefix='{prefix}'")
-        if rows:
-            final_rows.extend(rows)
-
-    print(f"Anzahl gesammelter Zeilen: {len(final_rows)}")
-
-    # Neues Workbook erstellen und Daten in "Pivot_Gesamt" schreiben
-    wb_pivot = openpyxl.Workbook()
-    ws_pivot = wb_pivot.active
-    ws_pivot.title = "Pivot_Gesamt"
-
-    # Header für die 12 Spalten
-    header = [
-        "Value Date",
-        "Buchungsart",
-        "Company number",
-        "Cost Center",
-        "Cost type",
-        "Cost type description",
-        "Currency",
-        "Amount",
-        "Entry date",
-        "Local Fibu Account",
-        "Document Number",
-        "Document Description"
-    ]
-    ws_pivot.append(header)
-
-    # Alle gesammelten Zeilen einfügen
-    for row in final_rows:
-        ws_pivot.append(row)
-
-    # Speichern
-    output_xlsx = os.path.join(output_dir, "MonthlyReport_STAG.xlsx")
-    wb_pivot.save(output_xlsx)
-
-    # Checksum Kontrolle
-    final_checksum_total_amount = checksum(output_xlsx, 2, 7)
-
-    print(final_checksum_files)
-    print(final_checksum_total_amount)
-    if floats_equal(final_checksum_files, final_checksum_total_amount):
-        print("CHECKSUM AMOUNT -> OK")
-        print(final_checksum_files)
-        print(final_checksum_total_amount)
+    if not os.path.isdir(source_dir) or not os.path.isdir(output_dir):
         if label_status:
-            label_status.config(text="EXPORT SUCCESS", fg="green")
-    else:
-        print("CHECKSUM AMOUNT -> NOT OK!!")
-        if label_status:
-            label_status.config(text="EXPORT FAILED", fg="red")
+            label_status.config(text="Ungültige Pfade", fg="red")
+        return
 
-    print(f"Fertig! Alle Daten in '{output_xlsx}' gespeichert.")
+    if selected_option == "Monthly Report":
+        print("[Monthly Report] Starte Verarbeitung...")
+        files = [f for f in os.listdir(source_dir) if f.endswith(".xlsx")]
+
+        final_rows = []
+        final_checksum_files = 0
+
+        for f in files:
+            file_path = os.path.join(source_dir, f)
+            prefix = f.split()[0]
+            final_checksum_files += checksum(file_path, 5, 4)
+            rows = pivot_kst_columns(file_path, prefix)
+            if rows:
+                final_rows.extend(rows)
+
+        wb_pivot = openpyxl.Workbook()
+        ws_pivot = wb_pivot.active
+        ws_pivot.title = "Pivot_Gesamt"
+
+        header = [
+            "Value Date", "Buchungsart", "Company number", "Cost Center",
+            "Cost type", "Cost type description", "Currency", "Amount",
+            "Entry date", "Local Fibu Account", "Document Number", "Document Description"
+        ]
+        ws_pivot.append(header)
+
+        for row in final_rows:
+            ws_pivot.append(row)
+
+        output_xlsx = os.path.join(output_dir, "MonthlyReport_STAG.xlsx")
+        wb_pivot.save(output_xlsx)
+
+        if label_status:
+            label_status.config(text="Monthly Report erstellt!", fg="green")
+
+    elif selected_option == "Revenue":
+        print("[Revenue] Starte Verarbeitung...")
+        files = [f for f in os.listdir(source_dir) if f.endswith(".xlsx")]
+
+        prefix_data_dict = {}
+        for f in files:
+            file_path = os.path.join(source_dir, f)
+            prefix = f.split()[0]
+            rev_data = revenue(file_path, prefix)
+            if rev_data:
+                prefix_data_dict.setdefault(prefix, []).extend(rev_data)
+
+        if prefix_data_dict:
+            save_revenue_to_excel(prefix_data_dict, output_dir)
+            if label_status:
+                label_status.config(text="Revenue Report erstellt!", fg="green")

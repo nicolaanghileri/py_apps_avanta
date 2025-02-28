@@ -2,6 +2,7 @@
 
 import tkinter as tk
 from tkinter import filedialog
+from tkinter import StringVar
 from logic import main_algo
 
 # Globale Variablen für die Pfade
@@ -34,13 +35,14 @@ def ordner_auswählen_output(label_ergebnis_output):
         label_ergebnis_output.config(text="Kein Ordner ausgewählt.")
 
 
-def start_programm(label_status):
+def start_programm(selected_option, label_status):
     """
     Ruft die main_algo aus logic.py auf und übergibt den
     aktuell ausgewählten source- und output-Pfad. label_status
     dient dazu, das Ergebnis in der GUI anzuzeigen.
     """
-    main_algo(source_directory, output_directory, label_status)
+    global source_directory, output_directory
+    main_algo(source_directory, output_directory, selected_option, label_status)
 
 
 def run_gui():
@@ -55,6 +57,19 @@ def run_gui():
     # Überschrift
     label_überschrift = tk.Label(root, text="Monthly Report generator", font=("Helvetica", 16))
     label_überschrift.pack(pady=10)
+
+
+    # Standart Auswahl im Dropdown
+    selected_option = StringVar()
+    selected_option.set("Monthly Report")
+
+    # Liste aller optionen
+    options = ["Monthly Report", "Revenue"]
+
+    # Dropdown Menu 
+    dropdown = tk.OptionMenu(root, selected_option, *options)
+    dropdown.pack(pady=10)
+
 
     # Label für Quelle-Ordner
     label_ergebnis = tk.Label(root, text="", font=("Helvetica", 10), wraplength=350)
@@ -84,7 +99,7 @@ def run_gui():
     label_status = tk.Label(root, text="", font=("Helvetica", 25))
     label_status.pack(pady=30)
 
-    button_start = tk.Button(root, text="START", command=lambda: start_programm(label_status))
+    button_start = tk.Button(root, text="START", command=lambda: start_programm(selected_option.get(),label_status))
     button_start.pack(pady=10)
 
     # Footer
@@ -93,7 +108,7 @@ def run_gui():
 
     footer_label = tk.Label(
         footer_frame,
-        text="nicola.anghileri@avanta.ch - Avanta Group AG",
+        text="Nicola Anghileri - Avanta Group AG",
         bg="lightgray",
         font=("Helvetica", 9)
     )
