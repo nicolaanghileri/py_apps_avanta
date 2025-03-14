@@ -1,5 +1,6 @@
 import os
 import openpyxl
+import datetime
 
 doc_number = 1
 
@@ -60,6 +61,12 @@ def validate_totals_before_anything(source_dir, label_status=None):
         label_status.config(text="Validierung OK", fg="green")
 
 
+def get_firstday_lastmonth():
+    today = datetime.date.today()
+    first_day_this_month = today.replace(day=1)
+    first_day_last_month = (first_day_this_month - datetime.timedelta(days=1)).replace(day=1)
+    return first_day_last_month.strftime('%d.%m.%Y')
+
 def pivot_kst_columns(source_file, prefix):
     """
     Liest eine Excel-Datei und wandelt Zeilen aus KST-Spalten in ein Standardformat um.
@@ -86,9 +93,10 @@ def pivot_kst_columns(source_file, prefix):
 
     # Finde alle KST-Spalten (Spalten, deren Header mit "KST" beginnt)
     kst_cols = [i for i, h in enumerate(headers) if h and str(h).startswith("KST")]
-
+    
     rows_to_append = []
 
+    correct_date = get_firstday_lastmonth()
     # Zeilen ab Zeile 5
     for row in ws_source.iter_rows(min_row=5, values_only=True):
         kontonummer2 = row[col_kto2]
@@ -102,10 +110,9 @@ def pivot_kst_columns(source_file, prefix):
                 new_kst = prefix + cost_center_num  # z. B. "486100"
 
                 rows_to_append.append([
-                    "01.01.2025",  # Value Date
+                    correct_date, # Value Date
                     "-",           # Buchungsart
                     prefix,        # Company number
-                    cost_center_num,  # KST (reine Nummer)
                     new_kst,       # Cost Center (Prefix+Nummer)
                     kontonummer2,  # Cost type
                     bezeichnung2,  # Cost type description
@@ -114,7 +121,7 @@ def pivot_kst_columns(source_file, prefix):
                     "01.01.2025",  # Entry date
                     "",            # Local Fibu Account
                     doc_number,    # Document Number
-                    ""             # Document Description
+                    bezeichnung2   # Document Description
                 ])
                 doc_number += 1
 
@@ -144,7 +151,7 @@ def revenue(source_file, prefix):
     allowed_accounts = data.get(prefix, [])
 
     # Filter: Nur wenn row[5] (Cost type) in den erlaubten Kontonummern ist
-    filtered_rows = [row for row in all_rows if str(row[5]) in allowed_accounts]
+    filtered_rows = [row for row in all_rows if str(row[4]) in allowed_accounts]
 
     return filtered_rows
 
@@ -159,7 +166,7 @@ def save_revenue_to_excel(prefix_data_dict, output_directory):
     wb.remove(default_sheet)
 
     header = [
-        "Value Date", "Buchungsart", "Company number", "KST", "Cost Center",
+        "Value Date", "Buchungsart", "Company number", "Cost Center",
         "Cost type", "Cost type description", "Currency", "Amount",
         "Entry date", "Local Fibu Account", "Document Number", "Document Description"
     ]
@@ -219,7 +226,7 @@ def main_algo(source_dir, output_dir, selected_option, label_status=None):
         return
 
     # 3) Auswahl verarbeiten
-    if selected_option == "Monthly Report":
+    if selected_option == "Monthly Report - P&L":
         print("[Monthly Report] Starte Verarbeitung...")
         files = [f for f in os.listdir(source_dir) if f.endswith(".xlsx")]
 
@@ -254,26 +261,39 @@ def main_algo(source_dir, output_dir, selected_option, label_status=None):
         if label_status:
             label_status.config(text="Monthly Report erstellt!", fg="green")
 
-    elif selected_option == "Revenue":
-        print("[Revenue] Starte Verarbeitung...")
-        files = [f for f in os.listdir(source_dir) if f.endswith(".xlsx")]
+    elif selected_option == "Monthly Report - Revenue":
+         print("[Revenue] Starte Verarbeitung...")
+    files = [f for f in os.listdir(source_dir) if f.endswith(".xlsx")]
 
-        prefix_data_dict = {}
-        for f in files:
-            file_path = os.path.join(source_dir, f)
-            prefix = f.split()[0]
-            rev_data = revenue(file_path, prefix)
-            if rev_data:
-                prefix_data_dict.setdefault(prefix, []).extend(rev_data)
+    all_rows = []
+    for f in files:
+        file_path = os.path.join(source_dir, f)
+        prefix = f.split()[0]
+        rev_data = revenue(file_path, prefix)
+        if rev_data:
+            all_rows.extend(rev_data)
 
-        if prefix_data_dict:
-            save_revenue_to_excel(prefix_data_dict, output_dir)
-            if label_status:
-                label_status.config(text="Revenue Report erstellt!", fg="green")
-        else:
-            if label_status:
-                label_status.config(text="Keine Revenue-Daten gefunden!", fg="red")
-            print("Keine Revenue-Daten gefunden.")
+    wb_revenue = openpyxl.Workbook()
+    ws_revenue = wb_revenue.active
+    ws_revenue.title = "Revenue"  # Alle Daten in einem Tab
+
+    header = [
+        "Value Date", "Buchungsart", "Company number", "Cost Center",
+        "Cost type", "Cost type description", "Currency", "Amount",
+        "Entry date", "Local Fibu Account", "Document Number", "Document Description"
+    ]
+    ws_revenue.append(header)
+
+    # Falls du zur besseren Übersicht auch den Hotel-Prefix (z. B. als Zwischenüberschrift)
+    # einfügen möchtest, könntest du z. B. einen leeren Zeilenumbruch oder einen Kommentar einfügen.
+    # Hier nur direkt alle Revenue-Zeilen anhängen:
+    for row in all_rows:
+        ws_revenue.append(row)
+
+    output_xlsx = os.path.join(output_dir, "Revenue_Report.xlsx")
+    wb_revenue.save(output_xlsx)
+    if label_status:
+        label_status.config(text="Revenue Report erstellt!", fg="green")
     else:
         print(f"Unbekannte Option: {selected_option}")
         if label_status:

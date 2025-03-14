@@ -14,7 +14,7 @@ def record(date, konto1, konto2, text1, betrag, text2,ws,flag):
     mwst_code = ""
     mwst_incl = ""
     mwst_land = ""
-    mwst_koeff = ""
+    mwst_koeff = 0
     mwst_konto = 0
     mwst_gkonto = 0
     mwst_sh = 0
@@ -51,7 +51,7 @@ def record(date, konto1, konto2, text1, betrag, text2,ws,flag):
     # Zeile erstellen (eine flache Liste, keine verschachtelte Liste)
     row_to_append = [
         record_number, "J", date, konto1, konto2, text1, betrag, text2, "S",
-        buchungsebene, 0, "", 0, "", "", "E", "", "", 0, "", "4221", "CHF", "CHF", 0, 0, 0, 0, 0, 0,
+        buchungsebene,0,"", 0, "", 0, "", "", "E", "", "", 0, "", "4222", "CHF", "CHF", 0, 0, 0, 0, 0, 0,
         "", "", "", "", mwst_code, 0, mwst_incl, 1, mwst_land, mwst_koeff, mwst_konto, mwst_gkonto, mwst_sh,
         0, 0, 0, 0, 0, mwst_typ, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, "", 0, 0
     ]
@@ -62,15 +62,13 @@ def record(date, konto1, konto2, text1, betrag, text2,ws,flag):
 
 if __name__ == "__main__":
     start_time = time.time()
-    file_path = os.path.join("../../source/486-Buchungen.xlsx")
+    file_path = os.path.join("../../source/507185-11-7_Buchungen_14-03-2025.xlsx")
     wb = openpyxl.load_workbook(file_path, data_only=True)
     ws = wb.active
 
-
-
     header = [
         "Record Nr", "Version", "Datum", "Konto", "Gegenkonto", "Text1", "Betrag", "Text2", "SH", 
-        "Buchungsebene 1", "Kurs", "Kursart", "FWBetrag", "Sammelbuchungs Identifier", "Spec1", 
+        "Buchungsebene 1","Gegenseite Buchungsebene 1","Belegnummer", "Kurs", "Kursart", "FWBetrag", "Sammelbuchungs Identifier", "Spec1", 
         "Applikationsidentifikation", "Reserve", "Valuta Datum", "Sam Position", "Reserve", "Mandant Nr", 
         "ISO", "ISO2", "Menge", "Ansatz", "Buchungsebene 2", "Gegenseite Buchungsebene 2", "Fond1", 
         "Fond2", "Reserve", "Reserve", "Reserve", "Codefeld", "Mwst Code", "Mwst Satz", "Mwst Incl", 
@@ -102,7 +100,7 @@ if __name__ == "__main__":
         elif re.search(pattern_payone, text):
             print("Detected: Payone GmbH pattern")
             match = re.search(pattern_payone,text)
-            record(date=row[0],konto1=16220,konto2=24016, text1="Payone GmbH", betrag=match.group(1),text2="",ws=output_ws,flag=True)
+            record(date=row[0],konto1=16220,konto2=24015, text1="Payone GmbH", betrag=match.group(1),text2="",ws=output_ws,flag=True)
             record(date=row[0],konto1=61002,konto2=16220, text1="Payone GmbH", betrag=match.group(2),text2="Kommission",ws=output_ws,flag=False)
         elif re.search(pattern_nexi, text):
             print("Detected: Nexi Germany GmbH pattern")

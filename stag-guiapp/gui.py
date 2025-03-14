@@ -1,9 +1,9 @@
-# gui.py
-
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import StringVar
 from logic import main_algo
+from tkinter import ttk
+import sv_ttk
 
 # Globale Variablen für die Pfade
 source_directory = ""
@@ -21,7 +21,6 @@ def ordner_auswählen(label_ergebnis):
     else:
         label_ergebnis.config(text="Kein Ordner ausgewählt.")
 
-
 def ordner_auswählen_output(label_ergebnis_output):
     """
     Öffnet einen Dialog, um den Output-Ordner auszuwählen.
@@ -34,7 +33,6 @@ def ordner_auswählen_output(label_ergebnis_output):
     else:
         label_ergebnis_output.config(text="Kein Ordner ausgewählt.")
 
-
 def start_programm(selected_option, label_status):
     """
     Ruft die main_algo aus logic.py auf und übergibt den
@@ -44,39 +42,33 @@ def start_programm(selected_option, label_status):
     global source_directory, output_directory
     main_algo(source_directory, output_directory, selected_option, label_status)
 
-
 def run_gui():
     """
     Hier wird das Hauptfenster (Tk) erstellt und alle GUI-Elemente platziert.
     Am Ende starten wir die mainloop.
     """
     root = tk.Tk()
+    sv_ttk.set_theme("dark")
     root.title("Avanta / Steigenberger Hotels AG")
     root.geometry("550x500")
 
     # Überschrift
-    label_überschrift = tk.Label(root, text="Monthly Report generator", font=("Helvetica", 16))
+    label_überschrift = ttk.Label(root, text="Monthly Report generator", font=("Helvetica", 16))
     label_überschrift.pack(pady=10)
 
-
-    # Standart Auswahl im Dropdown
+    # Standard Auswahl im Dropdown
     selected_option = StringVar()
-    selected_option.set("Monthly Report")
-
-    # Liste aller optionen
-    options = ["Monthly Report", "Revenue"]
-
-    # Dropdown Menu 
-    dropdown = tk.OptionMenu(root, selected_option, *options)
+    options = ["Monthly Report - P&L", "Monthly Report - Revenue"]
+    default_value = "Monthly Report - P&L"
+    dropdown = ttk.OptionMenu(root, selected_option, default_value, *options)
     dropdown.pack(pady=10)
 
-
     # Label für Quelle-Ordner
-    label_ergebnis = tk.Label(root, text="", font=("Helvetica", 10), wraplength=350)
+    label_ergebnis = ttk.Label(root, text="", font=("Helvetica", 10), wraplength=350)
     label_ergebnis.pack(pady=10)
 
     # Button zur Ordnerauswahl (Source)
-    button_auswahl = tk.Button(
+    button_auswahl = ttk.Button(
         root, 
         text="Ordner auswählen (Source)", 
         command=lambda: ordner_auswählen(label_ergebnis)
@@ -84,32 +76,32 @@ def run_gui():
     button_auswahl.pack(pady=10)
 
     # Label für Output-Ordner
-    label_ergebnis_output = tk.Label(root, text="", font=("Helvetica", 10), wraplength=350)
+    label_ergebnis_output = ttk.Label(root, text="", font=("Helvetica", 10), wraplength=350)
     label_ergebnis_output.pack(pady=10)
 
     # Button zur Ordnerauswahl (Output)
-    button_auswahl_output = tk.Button(
+    button_auswahl_output = ttk.Button(
         root, 
         text="Ordner auswählen (Output)", 
         command=lambda: ordner_auswählen_output(label_ergebnis_output)
     )
     button_auswahl_output.pack(pady=10)
 
-    # Button zum Start des Programms
+    # Status-Label: Verwende tk.Label, damit "fg" unterstützt wird!
     label_status = tk.Label(root, text="", font=("Helvetica", 25))
     label_status.pack(pady=30)
 
-    button_start = tk.Button(root, text="START", command=lambda: start_programm(selected_option.get(),label_status))
+    # Button zum Start des Programms
+    button_start = ttk.Button(root, text="START", command=lambda: start_programm(selected_option.get(), label_status))
     button_start.pack(pady=10)
 
     # Footer
-    footer_frame = tk.Frame(root, bg="lightgray")
+    footer_frame = ttk.Frame(root)
     footer_frame.pack(side="bottom", fill="x")
 
-    footer_label = tk.Label(
+    footer_label = ttk.Label(
         footer_frame,
         text="Nicola Anghileri - Avanta Group AG",
-        bg="lightgray",
         font=("Helvetica", 9)
     )
     footer_label.pack(pady=5)
