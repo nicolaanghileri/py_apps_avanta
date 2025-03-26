@@ -113,32 +113,54 @@ def validate_totals_before_anything(source_dir, label_status=None):
     if label_status:
         label_status.config(text="Validierung OK", fg="green")
 
-def process_pl_revenue(source_dir, output_dir, label_status=None):
+
+def process_pl_report(source_dir, output_dir, label_status=None):
+    global doc_number
+    doc_number = 1  # Nach jedem Lauf zurücksetzen
+    
     # Zuerst Validierung
     validate_totals_before_anything(source_dir, label_status)
-    files = [f for f in os.listdir(source_dir) if f.endswith(".xlsx")]
     
+    files = [f for f in os.listdir(source_dir) if f.endswith(".xlsx")]
+
     # P&L-Report erstellen
     final_rows = []
     for f in files:
         file_path = os.path.join(source_dir, f)
         prefix = f.split()[0]
         final_rows.extend(pivot_kst_columns(file_path, prefix))
+
+    # Excel-Workbook für das P&L-Resultat anlegen
     wb = Workbook()
     ws = wb.active
     ws.title = "Pivot_Gesamt"
-    header = ["Value Date", "Buchungsart", "Company number", "Cost Center", "Cost type",
-              "Cost type description", "Currency", "Amount", "Entry date", "Local Fibu Account",
-              "Document Number", "Document Description"]
+
+    header = [
+        "Value Date", "Buchungsart", "Company number", "Cost Center", "Cost type",
+        "Cost type description", "Currency", "Amount", "Entry date", "Local Fibu Account",
+        "Document Number", "Document Description"
+    ]
     ws.append(header)
+
     for row in final_rows:
         ws.append(row)
-    output_file = os.path.join(output_dir, "MonthlyReport_STAG.xlsx")
+
+    output_file = os.path.join(output_dir, "STAG-MonthlyReport.xlsx")
     wb.save(output_file)
-    print("Monthly Report erstellt!")
+
+    print("Monthly Report (P&L) erstellt!")
     if label_status:
-        label_status.config(text="Monthly Report erstellt!", fg="green")
-    
+        label_status.config(text="Monthly Report (P&L) erstellt!", fg="green")
+        
+        
+def process_revenue_report(source_dir, output_dir, label_status=None):
+    global doc_number
+    doc_number = 1  # Nach jedem Lauf zurücksetzen
+
+    validate_totals_before_anything(source_dir, label_status)
+
+    files = [f for f in os.listdir(source_dir) if f.endswith(".xlsx")]
+
     # Revenue-Report erstellen
     all_rows = []
     for f in files:
@@ -147,14 +169,24 @@ def process_pl_revenue(source_dir, output_dir, label_status=None):
         rev_data = revenue(file_path, prefix)
         if rev_data:
             all_rows.extend(rev_data)
+
     wb_rev = Workbook()
     ws_rev = wb_rev.active
     ws_rev.title = "Revenue"
+
+    header = [
+        "Value Date", "Buchungsart", "Company number", "Cost Center", "Cost type",
+        "Cost type description", "Currency", "Amount", "Entry date", "Local Fibu Account",
+        "Document Number", "Document Description"
+    ]
     ws_rev.append(header)
+
     for row in all_rows:
         ws_rev.append(row)
-    output_file_rev = os.path.join(output_dir, "Revenue_Report.xlsx")
+
+    output_file_rev = os.path.join(output_dir, "STAG-Revenue.xlsx")
     wb_rev.save(output_file_rev)
+
     print("Revenue Report erstellt!")
     if label_status:
         label_status.config(text="Revenue Report erstellt!", fg="green")
