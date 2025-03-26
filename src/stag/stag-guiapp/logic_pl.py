@@ -46,7 +46,7 @@ def pivot_kst_columns(source_file, prefix):
                     bezeichnung2,    # Cost type description
                     "CHF",           # Currency
                     float(amount),   # Amount
-                    "01.01.2025",    # Entry date
+                    correct_date,    # Entry date
                     "",              # Local Fibu Account
                     doc_number,      # Document Number
                     bezeichnung2     # Document Description (gleicher Wert wie Cost type description)
@@ -113,7 +113,6 @@ def validate_totals_before_anything(source_dir, label_status=None):
     if label_status:
         label_status.config(text="Validierung OK", fg="green")
 
-
 def process_pl_report(source_dir, output_dir, label_status=None):
     global doc_number
     doc_number = 1  # Nach jedem Lauf zurücksetzen
@@ -173,6 +172,11 @@ def process_revenue_report(source_dir, output_dir, label_status=None):
     wb_rev = Workbook()
     ws_rev = wb_rev.active
     ws_rev.title = "Revenue"
+    
+    doc_number = 1
+    for row in all_rows:
+        row[10] = doc_number 
+        doc_number += 1
 
     header = [
         "Value Date", "Buchungsart", "Company number", "Cost Center", "Cost type",

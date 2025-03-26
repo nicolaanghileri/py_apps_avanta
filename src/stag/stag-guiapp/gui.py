@@ -28,7 +28,7 @@ def ordner_auswählen_output(label_ergebnis_output):
 
 def start_programm(selected_option, label_status):
     global source_directory, output_directory
-    main_algo(source_directory, output_directory, selected_option, label_status)
+    main_algo(source_directory, selected_option, label_status)
 
 def run_gui():
     root = tk.Tk()
@@ -54,11 +54,6 @@ def run_gui():
     label_ergebnis.pack(pady=10)
     button_auswahl = ttk.Button(root, text="Ordner auswählen (Source)", command=lambda: ordner_auswählen(label_ergebnis))
     button_auswahl.pack(pady=10)
-
-    label_ergebnis_output = ttk.Label(root, text="", font=("Helvetica", 10), wraplength=350)
-    label_ergebnis_output.pack(pady=10)
-    button_auswahl_output = ttk.Button(root, text="Ordner auswählen (Output)", command=lambda: ordner_auswählen_output(label_ergebnis_output))
-    button_auswahl_output.pack(pady=10)
 
     # Status-Label als tk.Label (damit fg unterstützt wird)
     label_status = tk.Label(root, text="", font=("Helvetica", 25))

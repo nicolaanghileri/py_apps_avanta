@@ -1,23 +1,44 @@
 # main_algo.py
-import os
-from logic_pl import process_pl_report
-from logic_pl import process_revenue_report
+from pathlib import Path
+from datetime import date
+from logic_pl import process_pl_report, process_revenue_report
 from logic_cc import import_credit_card_payments
 from logic_con import consolidation
 
-def main_algo(source_dir, output_dir, selected_option, label_status=None):
-    if not os.path.isdir(source_dir) or not os.path.isdir(output_dir):
+def main_algo(source_dir, selected_option, label_status=None):
+    # Falls "source_dir" noch ein String ist, mach ihn zu einem Path:
+    source_dir = Path(source_dir)
+
+    if not source_dir.is_dir():
         if label_status:
-            label_status.config(text="Ungültige Pfade", fg="red")
+            label_status.config(text="Ungültiger Source Pfad", fg="red")
         return
+
+    today = date.today().strftime("%d-%m-%Y")
+
+    gen_output_dir = source_dir.parent / "output"
+    gen_output_dir.mkdir(parents=True, exist_ok=True)
+
     if selected_option == "Monthly Report - P&L":
-        process_pl_report(source_dir, output_dir, label_status)
+        final_output_dir = gen_output_dir / f"{today} P&L"
+        final_output_dir.mkdir(parents=True, exist_ok=True)
+        process_pl_report(source_dir, final_output_dir, label_status)
+
     elif selected_option == "Monthly Report - Revenue":
-        process_revenue_report(source_dir, output_dir, label_status)
+        final_output_dir = gen_output_dir / f"{today} Revenue"
+        final_output_dir.mkdir(parents=True, exist_ok=True)
+        process_revenue_report(source_dir, final_output_dir, label_status)
+
     elif selected_option == "Import Credit Card Payments":
-        import_credit_card_payments(source_dir, output_dir, label_status)
+        final_output_dir = gen_output_dir / f"{today} CC"
+        final_output_dir.mkdir(parents=True, exist_ok=True)
+        import_credit_card_payments(source_dir, final_output_dir, label_status)
+
     elif selected_option == "Consolidation":
-        consolidation(source_dir, output_dir, label_status)
+        final_output_dir = gen_output_dir / f"{today} Conso"
+        final_output_dir.mkdir(parents=True, exist_ok=True)
+        consolidation(source_dir, final_output_dir, label_status)
+        
     else:
         if label_status:
             label_status.config(text="Unbekannte Option!", fg="red")
