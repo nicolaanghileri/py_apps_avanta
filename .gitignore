@@ -1,0 +1,26 @@
+# Virtuelle Umgebung
+venv/
+.env/
+.venv/
+
+# Bytecode / Cache-Dateien
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / Packaging
+build/
+dist/
+*.egg-info/
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints
+
+# VSCode / IDEs / OS-Dateien
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Additional Files
+stag_kontenplan.xlsx
