@@ -150,8 +150,7 @@ def process_pl_report(source_dir, output_dir, label_status=None):
     print("Monthly Report (P&L) erstellt!")
     if label_status:
         label_status.config(text="Monthly Report (P&L) erstellt!", fg="green")
-        
-        
+             
 def process_revenue_report(source_dir, output_dir, label_status=None):
     global doc_number
     doc_number = 1  # Nach jedem Lauf zurücksetzen

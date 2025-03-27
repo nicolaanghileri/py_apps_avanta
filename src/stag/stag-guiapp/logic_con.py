@@ -2,6 +2,7 @@
 import os
 import glob
 import openpyxl
+import sys
 from openpyxl import Workbook
 
 def collect_all_kontos(files):
@@ -111,8 +112,18 @@ def export_result_map(result_map, output_file):
     wb.save(output_file)
     print(f"Export abgeschlossen: {output_file}")
 
+def resource_path(relative_path):
+    """
+    Gibt den absoluten Pfad zu Ressourcen zurück,
+    funktioniert sowohl während der Entwicklung
+    als auch, wenn das Programm eingefroren wurde.
+    """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+
 def consolidation(source_dir, output_dir, label_status=None):
-    mapping_file = os.path.join("", "stag_kontenplan.xlsx")
+    
+    mapping_file = resource_path('stag_kontenplan.xlsx')
     if not os.path.exists(mapping_file):
         print("Kontozuordnung (stag_kontenplan.xlsx) nicht gefunden!")
         if label_status:
